@@ -18,7 +18,7 @@ from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier,A
 
 import evaluation
 
-from hep_ml.gradientboosting import UGradientBoostingClassifier,BinFlatnessLossFunction
+from hep_ml.gradientboosting import UGradientBoostingClassifier,LogLossFunction
 #import xgboost as xgb
 
 print("Load the training/test data using pandas")
@@ -42,7 +42,7 @@ features= ['LifeTime', 'dira', 'FlightDistance', 'FlightDistanceError', 'IP',
        'p0_track_Chi2Dof', 'p1_track_Chi2Dof', 'p2_track_Chi2Dof','p0_IP',
        'p1_IP', 'p2_IP', 'p0_IPSig', 'p1_IPSig', 'p2_IPSig', 
             'p0_eta', 'p1_eta',
-       'p2_eta','mass']
+       'p2_eta']
 
 print("Train a Random Fores and gradient boos model model")
 """
@@ -57,19 +57,19 @@ rf.fit(train[features],train["signal"])
 
 """
 print("train a UBoost classifier")
-loss_funct=BinFlatnessLossFunction(uniform_features=["mass"],uniform_label=0,n_bins=10)
-ub=UGradientBoostingClassifier(loss=loss_funct,n_estimators=100, random_state=3,learning_rate=0.2,subsample=0.7)
+loss_funct=LogLossFunction()
+ub=UGradientBoostingClassifier(loss=loss_funct,n_estimators=100, random_state=3,learning_rate=0.245,subsample=0.7)
 ub.fit(train[features],train["signal"])
 
 print("train a Gradientboost classifier")
-gb=GradientBoostingClassifier(n_estimators=120, random_state=3,learning_rate=0.2,subsample=0.7,max_features=34)
-gb.fit(train[features[0:-1]],train["signal"])
+gb=GradientBoostingClassifier(n_estimators=120, random_state=3,learning_rate=0.256,subsample=0.7,max_features=34)
+gb.fit(train[features],train["signal"])
 
 print("loading aggrement data")
 check_agreement = pd.read_csv('C:/Users/sony/Downloads/Compressed/CERN/check_agreement.csv', index_col='id')
 
 print("calculating agreement probs")
-agreement_probs = 0.5*ub.predict_proba(check_agreement[features[0:-1]])[:, 1]+0.5*gb.predict_proba(check_agreement[features[0:-1]])[:, 1] 
+agreement_probs = 0.5*ub.predict_proba(check_agreement[features])[:, 1]+0.5*gb.predict_proba(check_agreement[features])[:, 1] 
 
 ks = evaluation.compute_ks(
     agreement_probs[check_agreement['signal'].values == 0],
@@ -84,14 +84,14 @@ print("loading correlation data")
 check_correlation = pd.read_csv('C:/Users/sony/Downloads/Compressed/CERN/check_correlation.csv', index_col='id')
 
 print("calculating correlation probs")
-correlation_probs =0.5*ub.predict_proba(check_correlation[features])[:, 1]+0.5*gb.predict_proba(check_correlation[features[0:-1]])[:, 1]
+correlation_probs =0.5*ub.predict_proba(check_correlation[features])[:, 1]+0.5*gb.predict_proba(check_correlation[features])[:, 1]
 cvm = evaluation.compute_cvm(correlation_probs, check_correlation['mass'])
 print 'CvM metric for gb', cvm, cvm < 0.002
 
 
 train_eval = train[train['min_ANNmuon'] > 0.4]
 print("calculating train probs having min_annmuon>0.4")
-train_probs = 0.5*ub.predict_proba(train_eval[features])[:, 1]+0.5*gb.predict_proba(train_eval[features[0:-1]])[:, 1]
+train_probs = 0.5*ub.predict_proba(train_eval[features])[:, 1]+0.5*gb.predict_proba(train_eval[features])[:, 1]
 AUC = evaluation.roc_auc_truncated(train_eval['signal'], train_probs)
 print 'AUC metric for gb', AUC
 
@@ -105,7 +105,7 @@ submission = pd.DataFrame({"id": test["id"], "prediction": test_probs})
 submission.to_csv("gd_xgboost_submission.csv", index=False)
 """
 result = pd.DataFrame({'id': test.index})
-result['prediction'] = 0.5*ub.predict_proba(test[features[0:-1]])[:, 1]+0.5*gb.predict_proba(test[features[0:-1]])[:, 1]
+result['prediction'] = 0.5*ub.predict_proba(test[features])[:, 1]+0.5*gb.predict_proba(test[features])[:, 1]
 
 
 result.to_csv('UBoost_classifier.csv', index=False, sep=',')
